@@ -1,15 +1,9 @@
-bl_info = {
-    "name": "Lsystem Modifier",
-    "blender": (2, 93, 0),
-    "category": "Object",
-}
-
 import bpy
 import math
 import mathutils
 import re
 import random
-from bpy.types import Modifier, Operator, PropertyGroup
+from bpy.types import Operator, PropertyGroup
 from bpy.props import IntProperty, FloatProperty, StringProperty, CollectionProperty
 
 class LSystemRule(PropertyGroup):
@@ -150,27 +144,12 @@ class LSystem:
             skin_vertex = mesh_object.data.skin_vertices[0].data[vertex.index]
             skin_vertex.radius = [0.02, 0.02]  # Adjust the radius to the desired thickness
 
-class LSystemModifier(bpy.types.Modifier):
-    bl_idname = "lsystem_modifier"
-    bl_label = "Lsystem Modifier"
-    bl_options = {'REGISTER', 'UNDO'}
-
+class LSystemModifierProperties(PropertyGroup):
     numIters: IntProperty(name='Iterations', default=20)
     step_length: FloatProperty(name='Step Length', default=1.0)
     default_angle: FloatProperty(name='Default Angle', default=80.0)
     startStr: StringProperty(name='Start String', default='&SYS')
     rules: CollectionProperty(name='Rules', type=LSystemRule)
-
-    def draw(self, context):
-        layout = self.layout
-        layout.prop(self, 'numIters')
-        layout.prop(self, 'step_length')
-        layout.prop(self, 'default_angle')
-        layout.prop(self, 'startStr')
-        
-        row = layout.row()
-        row.label(text='Rules:')
-        row.operator('object.add_lsystem_rule', text='Add Rule')
 
 class OBJECT_OT_AddLSystemRule(Operator):
     bl_idname = 'object.add_lsystem_rule'
@@ -179,23 +158,68 @@ class OBJECT_OT_AddLSystemRule(Operator):
 
     def execute(self, context):
         obj = context.object
-        if obj is None or obj.modifiers.active is None or obj.modifiers.active.type != 'lsystem_modifier':
+        if obj is None:
+            self.report({'ERROR'}, "No active object")
+            return {'CANCELLED'}
+        
+        if not hasattr(obj, 'lsystem_modifier'):
             self.report({'ERROR'}, "Active object does not have the Lsystem Modifier")
             return {'CANCELLED'}
         
-        modifier = obj.modifiers.active
-        modifier.rules.add()
+        obj.lsystem_modifier.rules.add()
+        return {'FINISHED'}
+
+class OBJECT_OT_ApplyLSystemModifier(Operator):
+    bl_idname = "object.apply_lsystem_modifier"
+    bl_label = "Apply Lsystem Modifier"
+    bl_description = "Apply the Lsystem modifier to the active object"
+
+    def execute(self, context):
+        obj = context.object
+        if obj is None:
+            self.report({'ERROR'}, "No active object")
+            return {'CANCELLED'}
+        
+        if not hasattr(obj, 'lsystem_modifier'):
+            self.report({'ERROR'}, "Active object does not have the Lsystem Modifier")
+            return {'CANCELLED'}
+        
+        lsystem_modifier = obj.lsystem_modifier
+
+        rules = {rule.key: rule.value for rule in lsystem_modifier.rules}
+        mesh_dict = {}  # Populate this with any predefined meshes if needed
+
+        lsystem = LSystem(
+            numIters=lsystem_modifier.numIters,
+            startStr=lsystem_modifier.startStr,
+            rules=rules,
+            step_length=lsystem_modifier.step_length,
+            default_angle=lsystem_modifier.default_angle,
+            mesh_dict=mesh_dict,
+        )
+        lsystem.draw()
+
         return {'FINISHED'}
 
 def register():
     bpy.utils.register_class(LSystemRule)
-    bpy.utils.register_class(LSystemModifier)
+    bpy.utils.register_class(LSystemModifierProperties)
     bpy.utils.register_class(OBJECT_OT_AddLSystemRule)
+    bpy.utils.register_class(OBJECT_OT_ApplyLSystemModifier)
+    bpy.types.Object.lsystem_modifier = bpy.props.PointerProperty(type=LSystemModifierProperties)
+    bpy.types.VIEW3D_MT_object.append(menu_func)
 
 def unregister():
     bpy.utils.unregister_class(LSystemRule)
-    bpy.utils.unregister_class(LSystemModifier)
+    bpy.utils.unregister_class(LSystemModifierProperties)
     bpy.utils.unregister_class(OBJECT_OT_AddLSystemRule)
+    bpy.utils.unregister_class(OBJECT_OT_ApplyLSystemModifier)
+    del bpy.types.Object.lsystem_modifier
+    bpy.types.VIEW3D_MT_object.remove(menu_func)
 
-if __name__ == '__main__':
+def menu_func(self, context):
+    self.layout.operator(OBJECT_OT_ApplyLSystemModifier.bl_idname)
+
+if __name__ == "__main__":
     register()
+
