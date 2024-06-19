@@ -9,8 +9,12 @@ import math
 import mathutils
 import re
 import random
-from bpy.types import Modifier, Operator
-from bpy.props import IntProperty, FloatProperty, StringProperty, CollectionProperty, PointerProperty
+from bpy.types import Modifier, Operator, PropertyGroup
+from bpy.props import IntProperty, FloatProperty, StringProperty, CollectionProperty
+
+class LSystemRule(PropertyGroup):
+    key: StringProperty(name="Key")
+    value: StringProperty(name="Value")
 
 class LSystem:
     def __init__(self, numIters, startStr, rules, step_length, default_angle, mesh_dict):
@@ -155,7 +159,7 @@ class LSystemModifier(bpy.types.Modifier):
     step_length: FloatProperty(name='Step Length', default=1.0)
     default_angle: FloatProperty(name='Default Angle', default=80.0)
     startStr: StringProperty(name='Start String', default='&SYS')
-    rules: CollectionProperty(name='Rules', type=bpy.types.PropertyGroup)
+    rules: CollectionProperty(name='Rules', type=LSystemRule)
 
     def draw(self, context):
         layout = self.layout
@@ -174,15 +178,22 @@ class OBJECT_OT_AddLSystemRule(Operator):
     bl_description = 'Add a new rule to the Lsystem modifier'
 
     def execute(self, context):
-        modifier = context.object.modifiers.active
+        obj = context.object
+        if obj is None or obj.modifiers.active is None or obj.modifiers.active.type != 'lsystem_modifier':
+            self.report({'ERROR'}, "Active object does not have the Lsystem Modifier")
+            return {'CANCELLED'}
+        
+        modifier = obj.modifiers.active
         modifier.rules.add()
         return {'FINISHED'}
 
 def register():
+    bpy.utils.register_class(LSystemRule)
     bpy.utils.register_class(LSystemModifier)
     bpy.utils.register_class(OBJECT_OT_AddLSystemRule)
 
 def unregister():
+    bpy.utils.unregister_class(LSystemRule)
     bpy.utils.unregister_class(LSystemModifier)
     bpy.utils.unregister_class(OBJECT_OT_AddLSystemRule)
 
