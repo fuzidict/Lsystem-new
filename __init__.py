@@ -5,7 +5,7 @@ bl_info = {
 }
 
 import bpy
-from .Lsystemmodifer import (
+from .LSM import (
     LSystemRule,
     LSystemModifier,
     OBJECT_OT_AddLSystemRule,
