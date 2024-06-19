@@ -1,7 +1,7 @@
 bl_info = {
-    "name": "Lsystem Node",
+    "name": "Lsystem Modifier",
     "blender": (2, 93, 0),
-    "category": "Node",
+    "category": "Object",
 }
 
 import bpy
@@ -9,8 +9,8 @@ import math
 import mathutils
 import re
 import random
-from bpy.types import Node, NodeSocket, NodeCustomGroup
-from bpy.props import IntProperty, FloatProperty, StringProperty, CollectionProperty
+from bpy.types import Modifier, Operator
+from bpy.props import IntProperty, FloatProperty, StringProperty, CollectionProperty, PointerProperty
 
 class LSystem:
     def __init__(self, numIters, startStr, rules, step_length, default_angle, mesh_dict):
@@ -146,44 +146,19 @@ class LSystem:
             skin_vertex = mesh_object.data.skin_vertices[0].data[vertex.index]
             skin_vertex.radius = [0.02, 0.02]  # Adjust the radius to the desired thickness
 
-# Define input and output socket types
-class LSystemNodeSocket(NodeSocket):
-    bl_idname = 'LSystemNodeSocket'
-    bl_label = 'LSystem Node Socket'
-    
-    default_value: StringProperty()
+class LSystemModifier(bpy.types.Modifier):
+    bl_idname = "lsystem_modifier"
+    bl_label = "Lsystem Modifier"
+    bl_options = {'REGISTER', 'UNDO'}
 
-    def draw(self, context, layout, node, text):
-        layout.prop(self, "default_value", text=text)
-
-    def draw_color(self, context, node):
-        return (0.6, 0.6, 0.2, 1.0)
-
-# Define the custom node
-class LSystemNode(NodeCustomGroup):
-    bl_idname = 'LSystemNode'
-    bl_label = 'Lsystem Node'
-    bl_icon = 'NODE'
-    
     numIters: IntProperty(name='Iterations', default=20)
     step_length: FloatProperty(name='Step Length', default=1.0)
     default_angle: FloatProperty(name='Default Angle', default=80.0)
     startStr: StringProperty(name='Start String', default='&SYS')
     rules: CollectionProperty(name='Rules', type=bpy.types.PropertyGroup)
-    
-    def init(self, context):
-        self.inputs.new('NodeSocketInt', 'Iterations')
-        self.inputs.new('NodeSocketFloat', 'Step Length')
-        self.inputs.new('NodeSocketFloat', 'Default Angle')
-        self.inputs.new('LSystemNodeSocket', 'Start String')
-        self.inputs.new('LSystemNodeSocket', 'Rules')
-        self.outputs.new('NodeSocketGeometry', 'Geometry')
-    
-    def update(self):
-        for output in self.outputs:
-            output.default_value = None  # Dummy value to trigger update
-    
-    def draw_buttons(self, context, layout):
+
+    def draw(self, context):
+        layout = self.layout
         layout.prop(self, 'numIters')
         layout.prop(self, 'step_length')
         layout.prop(self, 'default_angle')
@@ -191,32 +166,25 @@ class LSystemNode(NodeCustomGroup):
         
         row = layout.row()
         row.label(text='Rules:')
-        row.operator('node.add_lsystem_rule', text='Add Rule')
+        row.operator('object.add_lsystem_rule', text='Add Rule')
 
-class NODE_OT_AddLSystemRule(bpy.types.Operator):
-    bl_idname = 'node.add_lsystem_rule'
+class OBJECT_OT_AddLSystemRule(Operator):
+    bl_idname = 'object.add_lsystem_rule'
     bl_label = 'Add Lsystem Rule'
-    bl_description = 'Add a new rule to the Lsystem node'
-    
+    bl_description = 'Add a new rule to the Lsystem modifier'
+
     def execute(self, context):
-        node = context.node
-        node.rules.add()
+        modifier = context.object.modifiers.active
+        modifier.rules.add()
         return {'FINISHED'}
 
-def node_category_func(self, context):
-    self.layout.operator("node.add_node", text="Lsystem Node", icon="NODE")
-    
 def register():
-    bpy.utils.register_class(LSystemNodeSocket)
-    bpy.utils.register_class(LSystemNode)
-    bpy.utils.register_class(NODE_OT_AddLSystemRule)
-    bpy.types.NODE_MT_add.append(node_category_func)
+    bpy.utils.register_class(LSystemModifier)
+    bpy.utils.register_class(OBJECT_OT_AddLSystemRule)
 
 def unregister():
-    bpy.utils.unregister_class(LSystemNodeSocket)
-    bpy.utils.unregister_class(LSystemNode)
-    bpy.utils.unregister_class(NODE_OT_AddLSystemRule)
-    bpy.types.NODE_MT_add.remove(node_category_func)
+    bpy.utils.unregister_class(LSystemModifier)
+    bpy.utils.unregister_class(OBJECT_OT_AddLSystemRule)
 
 if __name__ == '__main__':
     register()
